@@ -164,40 +164,47 @@ def create_folds_bloc(fichier_dat, n=1):
 def discretisation(rows, header, nb_bins, logfile_path):
     """
     Discrétise les données d'entraînement à l'aide des intervalles calculés.
-
-    Paramètres
-    ----------
-    rows : list[list]
-        Lignes d'entraînement.
-    header : list[str]
-        Noms des attributs numériques.
-    nb_bins : int
-        Nombre d'intervalles.
-    logfile_path : str
-        Chemin du fichier de cutpoints.
-
-    Retour
-    ------
-    tuple
-        (intervals, rows_discretized)
+    Les lignes contenant des valeurs non numériques sont ignorées.
     """
-    features = [r[:-1] for r in rows]
-    labels = [r[-1] for r in rows]
 
-    features = clean_features([[float(x) for x in row] for row in features])
+    # Séparation features / labels
+    raw_features = [r[:-1] for r in rows]
+    raw_labels = [r[-1] for r in rows]
+
+    features = []
+    labels = []
+
+    # Conversion sécurisée en float
+    for i, row in enumerate(raw_features):
+        try:
+            row_float = [float(x) for x in row]
+            features.append(row_float)
+            labels.append(raw_labels[i])
+        except ValueError:
+            print(f"[Discretisation] Ligne ignorée (valeur non numérique) : {row}")
+
+    if len(features) == 0:
+        raise ValueError("Aucune ligne numérique valide après nettoyage.")
+
+    # Nettoyage des lignes incohérentes
+    features = clean_features(features)
+
+    # Calcul des intervalles
     intervals = compute_intervals(features, nb_bins, header, logfile_path)
 
-    discretized = []
+    # Discrétisation
+    rows_discretized = []
     for i, row in enumerate(features):
         new_row = []
         for col_idx, val in enumerate(row):
-            for b_idx, (a, b) in enumerate(intervals[col_idx]):
+            for bin_idx, (a, b) in enumerate(intervals[col_idx]):
                 if a <= val <= b:
-                    new_row.append(str(b_idx))
+                    new_row.append(str(bin_idx))
                     break
-        discretized.append(new_row + [labels[i]])
+        rows_discretized.append(new_row + [labels[i]])
 
-    return intervals, discretized
+    return intervals, rows_discretized
+
 
 
 def creation_desc(intervals, header, class_name, desc_path):

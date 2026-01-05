@@ -4,8 +4,26 @@ import random as rd
 
 
 # =====================================================================
+# Gestion des valeurs <LD
+# =====================================================================
+
+def normalize_ld(x):
+    """
+    Normalise les valeurs <LD / LD / NA / vides vers 0.0
+    Compatible avec le pipeline KEEL.
+    """
+    if isinstance(x, str):
+        x = x.strip().upper()
+        if x in ["<LD", "LD", "NA", ""]:
+            return 0.0
+    return x
+
+
+# =====================================================================
 # Chargement et préparation des données
 # =====================================================================
+
+
 
 # Chargement des données brutes
 data_init = pd.read_csv('data/data_ano.csv')
@@ -13,28 +31,23 @@ data_init = pd.read_csv('data/data_ano.csv')
 # Suppression des colonnes non pertinentes
 data_num = data_init.drop(["ID", "#2", "#3", "#4", "#5"], axis=1)
 
-# Séparation selon le prélèvement
+
+# Extraction de la variable cible
+data_type = data_num["Type"]
+
+# Suppression des colonnes inutiles pour l'entraînement
 data_prelev_1 = data_num[data_num["Prelevement"] == 1]
 data_prelev_2 = data_num[data_num["Prelevement"] == 2]
 
-# Extraction de la variable cible
-data_type = data_prelev_1["Type"]
-
-# Suppression des colonnes inutiles pour l'entraînement
-data_prelev_1 = data_prelev_1.drop(["Prelevement", "Type"], axis=1)
-data_prelev_2 = data_prelev_2.drop(["Prelevement", "Type"], axis=1)
-
-# Remplacement des valeurs "<LD"
-data_prelev_1 = data_prelev_1.replace("<LD", 0.001)
-data_prelev_2 = data_prelev_2.replace("<LD", 0.001)
+# Remplacement robuste des valeurs <LD
+data_num = data_num.applymap(normalize_ld)
 
 # Conversion en numérique
-data_prelev_1 = data_prelev_1.apply(pd.to_numeric, errors='coerce')
-data_prelev_2 = data_prelev_2.apply(pd.to_numeric, errors='coerce')
+data_num = data_num.apply(pd.to_numeric, errors='coerce')
 
-# Conversion en valeurs numériques
-data_prelev_1 = data_prelev_1.apply(pd.to_numeric, errors='coerce')
-data_prelev_2 = data_prelev_2.apply(pd.to_numeric, errors='coerce')
+
+# Conversion en numérique
+data_num = data_num.apply(pd.to_numeric, errors='coerce')
 
 
 # =====================================================================
@@ -151,7 +164,7 @@ def brouillage(nom_fichier, data, prob):
 # =====================================================================
 
 # Brouillage des données du prélèvement 1
-data_fin = brouillage("data_fin", data_prelev_1, 1)
+data_fin = brouillage("data_fin", data_num, 1)
 print("Brouillage du prélèvement 1 terminé et exporté sous 'data_fin.csv'")
 
 
