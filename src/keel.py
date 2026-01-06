@@ -164,41 +164,53 @@ def create_folds_bloc(fichier_dat, n=1):
 def discretisation(rows, header, nb_bins, logfile_path):
     """
     Discrétise les données d'entraînement à l'aide des intervalles calculés.
-
-    Paramètres
-    ----------
-    rows : list[list]
-        Lignes d'entraînement.
-    header : list[str]
-        Noms des attributs numériques.
-    nb_bins : int
-        Nombre d'intervalles.
-    logfile_path : str
-        Chemin du fichier de cutpoints.
-
-    Retour
-    ------
-    tuple
-        (intervals, rows_discretized)
+    Les lignes contenant des valeurs non numériques sont forcées à 0.0.
     """
-    features = [r[:-1] for r in rows]
-    labels = [r[-1] for r in rows]
 
-    features = clean_features([[float(x) for x in row] for row in features])
+    # Séparation features / labels
+    raw_features = [r[:-1] for r in rows]
+    raw_labels = [r[-1] for r in rows]
+
+    features = []
+    labels = []
+
+    # Conversion sécurisée en float (valeurs impossibles → 0.0)
+    for i, row in enumerate(raw_features):
+        row_float = []
+        for val in row:
+            try:
+                row_float.append(float(val))
+            except ValueError:
+                row_float.append(0.0)
+        features.append(row_float)
+        labels.append(raw_labels[i])
+
+    # Nettoyage des lignes incohérentes (colonnes incomplètes)
+    features = clean_features(features)
+
+    # Si clean_features supprime tout, on garde quand même au moins une ligne de 0
+    if len(features) == 0 and len(rows) > 0:
+        n_cols = len(rows[0]) - 1
+        features = [[0.0]*n_cols]
+        labels = [rows[0][-1]]
+
+    # Calcul des intervalles
     intervals = compute_intervals(features, nb_bins, header, logfile_path)
 
-    discretized = []
+    # Discrétisation
+    rows_discretized = []
     for i, row in enumerate(features):
         new_row = []
         for col_idx, val in enumerate(row):
-            for b_idx, (a, b) in enumerate(intervals[col_idx]):
+            for bin_idx, (a, b) in enumerate(intervals[col_idx]):
                 if a <= val <= b:
-                    new_row.append(str(b_idx))
+                    new_row.append(str(bin_idx))
                     break
-        discretized.append(new_row + [labels[i]])
+            else:
+                new_row.append("0")  # fallback si aucune bin match
+        rows_discretized.append(new_row + [labels[i]])
 
-    return intervals, discretized
-
+    return intervals, rows_discretized
 
 def creation_desc(intervals, header, class_name, desc_path):
     """
