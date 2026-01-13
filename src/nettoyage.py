@@ -31,12 +31,11 @@ def normalize_ld(x):
 
     return np.nan
 
-def normalize_ld_by_column(df, target_col):
+def normalize_ld_by_column(df):
     """
-    Applique la normalisation des valeurs <LD et NaN sur toutes les colonnes
-    sauf la colonne cible.
+    Applique la normalisation <LD / NaN → 0.0 sur toutes les colonnes du DataFrame.
     """
     for col in df.columns:
-        if col != target_col:
-            df[col] = df[col].apply(normalize_ld)
+        df[col] = df[col].apply(normalize_ld)
     return df
+
