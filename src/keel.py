@@ -1,6 +1,7 @@
 from sklearn.model_selection import KFold
 import pandas as pd
 import os
+import random
 from discretisation import clean_features, compute_intervals
 
 
@@ -67,40 +68,58 @@ def csv_to_dat(fichier_csv):
     return fichier_dat
 
 
-def create_folds_random(fichier_dat, k):
-    """
-    Crée k folds mélangés (KFold avec shuffle).
+from sklearn.model_selection import KFold
 
-    Paramètres
-    ----------
-    fichier_dat : str
-        Chemin du fichier DAT.
-    k : int
-        Nombre de folds.
+from sklearn.model_selection import ShuffleSplit
 
-    Retour
-    ------
-    tuple
-        (header, liste de couples (train_rows, test_rows)).
-    """
+def create_folds_random(
+    fichier_dat,
+    n_splits,
+    test_size=0.2,
+    fichier_stats="data/stats_folds.txt"
+):
+
     with open(fichier_dat, 'r') as f:
         lignes = f.readlines()
 
     header = lignes[0].strip().split()
     data = [l.strip().split() for l in lignes[1:]]
+    n = len(data)
 
+    train_count = [0] * n
+    test_count = [0] * n
     folds = []
-    kf = KFold(n_splits=k, shuffle=True, random_state=42)
 
-    for train_idx, test_idx in kf.split(data):
-        train = [data[i] for i in train_idx]
-        test = [data[i] for i in test_idx]
-        folds.append((train, test))
+    rs = ShuffleSplit(
+        n_splits=n_splits,
+        test_size=test_size,
+        random_state=42
+    )
+
+    for train_idx, test_idx in rs.split(data):
+
+        for i in train_idx:
+            train_count[i] += 1
+        for i in test_idx:
+            test_count[i] += 1
+
+        folds.append(
+            ([data[i] for i in train_idx],
+             [data[i] for i in test_idx])
+        )
+
+    # Écriture des statistiques
+    with open(fichier_stats, "w") as f:
+        f.write("Ligne\tTrain\tTest\t%Train\t%Test\n")
+        for i in range(n):
+            pct_train = train_count[i] / n_splits
+            pct_test = test_count[i] / n_splits
+            f.write(
+                f"{i+1}\t{train_count[i]}\t{test_count[i]}"
+                f"\t{pct_train:.3f}\t{pct_test:.3f}\n"
+            )
 
     return header, folds
-
-    import random
-import random
 
 def create_folds_bloc(fichier_dat, n=1):
     """
