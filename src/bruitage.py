@@ -15,7 +15,7 @@ def normalize_ld(x):
     if isinstance(x, str):
         x = x.strip().upper()
         if x in ["<LD", "LD", "NA", ""]:
-            return 0.0
+            return 0.001
     return x
 
 
@@ -27,6 +27,7 @@ def normalize_ld(x):
 
 # Chargement des données brutes
 data_init = pd.read_csv('data/data_ano.csv')
+
 
 # Suppression des colonnes non pertinentes
 data_num = data_init.drop(["ID", "#2", "#3", "#4", "#5"], axis=1)

@@ -2,7 +2,7 @@ from sklearn.model_selection import KFold
 import pandas as pd
 import os
 import random
-from discretisation import clean_features, compute_intervals
+from discretisation import clean_features, compute_intervals_supervised
 
 
 def colonne_sparse(csv_path, output_path=None, threshold=0.3):
@@ -72,65 +72,19 @@ from sklearn.model_selection import KFold
 
 from sklearn.model_selection import ShuffleSplit
 
-def create_folds_random(
-    fichier_dat,
-    n_splits,
-    test_size=0.2,
-    fichier_stats="data/stats_folds.txt"
-):
+import random
+from sklearn.model_selection import StratifiedKFold
 
-    with open(fichier_dat, 'r') as f:
-        lignes = f.readlines()
-
-    header = lignes[0].strip().split()
-    data = [l.strip().split() for l in lignes[1:]]
-    n = len(data)
-
-    train_count = [0] * n
-    test_count = [0] * n
-    folds = []
-
-    rs = ShuffleSplit(
-        n_splits=n_splits,
-        test_size=test_size,
-        random_state=42
-    )
-
-    for train_idx, test_idx in rs.split(data):
-
-        for i in train_idx:
-            train_count[i] += 1
-        for i in test_idx:
-            test_count[i] += 1
-
-        folds.append(
-            ([data[i] for i in train_idx],
-             [data[i] for i in test_idx])
-        )
-
-    # Écriture des statistiques
-    with open(fichier_stats, "w") as f:
-        f.write("Ligne\tTrain\tTest\t%Train\t%Test\n")
-        for i in range(n):
-            pct_train = train_count[i] / n_splits
-            pct_test = test_count[i] / n_splits
-            f.write(
-                f"{i+1}\t{train_count[i]}\t{test_count[i]}"
-                f"\t{pct_train:.3f}\t{pct_test:.3f}\n"
-            )
-
-    return header, folds
-
-def create_folds_bloc(fichier_dat, n=1):
+def create_folds_random(fichier_dat, n=1):
     """
-    Mélange les données et crée 5 folds (block cross-validation).
-    Si n > 1, répète la procédure n fois, en refaisant un mélange à chaque tour.
-    
+    Crée des folds stratifiés (66% sain / 33% malade conservés)
+    en utilisant StratifiedKFold de scikit-learn.
+
     Paramètres :
         fichier_dat : str
             Chemin du fichier .dat
         n : int
-            Nombre de répétitions de la création des 5 folds
+            Nombre de répétitions des 5 folds
 
     Retour :
         header : liste des attributs
@@ -144,34 +98,91 @@ def create_folds_bloc(fichier_dat, n=1):
     header = lignes[0].strip().split()
     data_original = [l.strip().split() for l in lignes[1:]]
 
+    # Séparation X / y
+    X = data_original
+    y = [ligne[-1] for ligne in data_original]  # classe = dernière colonne
+
     all_folds = []
 
     for iteration in range(n):
 
-        data = data_original.copy()
+        skf = StratifiedKFold(
+            n_splits=5,
+            shuffle=True,
+            random_state=123 + iteration
+        )
+
+        for train_index, test_index in skf.split(X, y):
+            train = [X[i] for i in train_index]
+            test = [X[i] for i in test_index]
+
+            all_folds.append((train, test))
+
+    return header, all_folds
+
+
+import random
+from collections import defaultdict
+
+def create_folds_bloc(fichier_dat, n=1):
+    """
+    Crée des blocs stratifiés (66% sain / 33% malade)
+    puis construit les folds exactement comme la version originale.
+    """
+
+    with open(fichier_dat, 'r') as f:
+        lignes = f.readlines()
+
+    header = lignes[0].strip().split()
+    data_original = [l.strip().split() for l in lignes[1:]]
+
+    all_folds = []
+
+    for iteration in range(n):
 
         random.seed(123 + iteration)
-        random.shuffle(data)
 
-        # Taille des blocs
-        n_data = len(data)
-        block_size = n_data // 5
+        # Séparation par classe
+        classes = defaultdict(list)
+        for ligne in data_original:
+            classes[ligne[-1]].append(ligne)
 
-        # Découpage en 5 blocs
-        blocs = []
+        # Mélange dans chaque classe
+        for c in classes:
+            random.shuffle(classes[c])
+
+        # Découpage en 5 blocs par classe
+        blocs_par_classe = {}
+        for c, lignes_classe in classes.items():
+            n_data = len(lignes_classe)
+            block_size = n_data // 5
+
+            blocs = []
+            for i in range(5):
+                start = i * block_size
+                end = n_data if i == 4 else (i + 1) * block_size
+                blocs.append(lignes_classe[start:end])
+
+            blocs_par_classe[c] = blocs
+
+        # Fusion des blocs par classe → blocs finaux
+        blocs_finals = []
         for i in range(5):
-            start = i * block_size
-            end = n_data if i == 4 else (i + 1) * block_size
-            blocs.append(data[start:end])
+            bloc = []
+            for c in blocs_par_classe:
+                bloc.extend(blocs_par_classe[c][i])
 
-        # Création des 5 folds
+            random.shuffle(bloc)
+            blocs_finals.append(bloc)
+
+        # Création des folds (5 folds)  
         for i in range(5):
-            test = blocs[i]
+            test = blocs_finals[i]
             train = []
 
             for j in range(5):
                 if j != i:
-                    train.extend(blocs[j])
+                    train.extend(blocs_finals[j])
 
             all_folds.append((train, test))
 
@@ -214,7 +225,8 @@ def discretisation(rows, header, nb_bins, logfile_path):
         labels = [rows[0][-1]]
 
     # Calcul des intervalles
-    intervals = compute_intervals(features, nb_bins, header, logfile_path)
+    intervals = compute_intervals_supervised(features, labels, header, logfile_path)
+
 
     # Discrétisation
     rows_discretized = []

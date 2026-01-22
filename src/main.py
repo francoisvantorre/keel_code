@@ -26,15 +26,16 @@ from keel import (
 # =====================================================================
 # Configuration
 # =====================================================================
-INPUT_FILE = "data/iris0.dat"     # CSV ou DAT
+# INPUT_FILE = "data/iris0.dat"     # CSV ou DAT
+INPUT_FILE = "data/data_ano.csv"
 CLEANED_FILE = "data/data_clean_final.csv"
 
 FOLD_METHOD = "random"              # 'random' ou 'bloc'
-NB_EXECUTION = 10
+NB_EXECUTION = 2                  # LE nb de folds sera NB_EXECUTION * 5
 NB_BINS = 10
 
-NON_NUMERIC_COLS = ["ID", "#2", "#3", "#4", "#5"]
-TARGET_COL = "Class"
+NON_NUMERIC_COLS = ["ID", "#2", "#3", "#4", "#5","Prelevement"]
+TARGET_COL = "Type"
 
 # =====================================================================
 # Programme principal
