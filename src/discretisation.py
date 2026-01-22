@@ -37,62 +37,82 @@ def clean_features(features):
 
     return clean
 
-
-def compute_intervals(features, nb_bins, header, logfile_path):
+def compute_intervals_supervised(
+    features,
+    labels,
+    header,
+    logfile_path,
+    min_samples_per_interval=5,
+    min_cut_distance=1e-6,
+    max_cuts_per_column=None
+):
     """
-    Calcule des intervalles de discrétisation en fréquences égales et écrit
-    les points de coupure dans un fichier texte.
+    Calcule des intervalles de discrétisation supervisée, colonne par colonne.
+    Les cutpoints sont créés chaque fois que la variable cible change
+    dans les données triées pour chaque colonne.
 
-    Paramètres
-    ----------
-    features : list[list[float]]
-        Données numériques nettoyées.
-    nb_bins : int
-        Nombre de classes de discrétisation.
-    header : list[str]
-        Noms des attributs numériques.
-    logfile_path : str
-        Chemin du fichier où seront enregistrés les cutpoints.
+    Les cutpoints sont limités par min_samples_per_interval, min_cut_distance
+    et éventuellement max_cuts_per_column.
 
-    Retour
-    ------
-    list[list[tuple(float, float)]]
-        Liste des intervalles pour chaque attribut.
+    Chaque cutpoint écrit dans le log contient :
+        - l’indice dans les données triées
+        - la valeur du cutpoint
+        - le nom de la colonne
     """
 
-    os.makedirs(os.path.dirname(logfile_path), exist_ok=True)
-
+    n_samples = len(features)
+    n_features = len(features[0])
     intervals = []
-    nb_cols = len(features[0])
 
-    with open(logfile_path, "w") as logfile:
+    # UTF-8 pour garder les accents
+    with open(logfile_path, "w", encoding="utf-8") as log:
+        log.write("DISCRÉTISATION SUPERVISÉE — POINTS DE COUPURE\n")
+        log.write("=" * 50 + "\n\n")
 
-        for col in range(nb_cols):
-            col_name = header[col]
-            values = [row[col] for row in features]
+        for col_idx in range(n_features):
+            feature_name = header[col_idx]
 
-            sorted_vals = sorted(values)
-            n = len(sorted_vals)
-            step = n // nb_bins if nb_bins > 0 else 1
-
-            frontiere = []
-            for b in range(nb_bins + 1):
-                idx = min(b * step, n - 1)
-                val = sorted_vals[idx]
-                frontiere.append(val)
-
-                line = f"Colonne : {col_name}, bin {b}, index {idx}, valeur {val}\n"
-                print(line.strip())
-                logfile.write(line)
-
-            logfile.write("\n")
+            # Coupler (valeur, label) pour le tri
+            col_data = [(features[i][col_idx], labels[i]) for i in range(n_samples)]
+            col_data.sort(key=lambda x: x[0])
 
             col_intervals = []
-            for i in range(nb_bins):
-                a = round(frontiere[i], 1)
-                b = round(frontiere[i + 1], 1)
-                col_intervals.append((a, b))
+            cutpoints = []
 
+            start = col_data[0][0]
+            prev_val, prev_label = col_data[0]
+            samples_since_last_cut = 1
+
+            for sorted_idx in range(1, n_samples):
+                val, label = col_data[sorted_idx]
+                samples_since_last_cut += 1
+
+                # Changement de classe → candidate pour cut
+                if label != prev_label:
+                    if samples_since_last_cut >= min_samples_per_interval:
+                        cut = (prev_val + val) / 2.0
+                        if not cutpoints or abs(cut - cutpoints[-1][1]) >= min_cut_distance:
+                            col_intervals.append((start, cut))
+                            # stocke l'indice dans les données triées
+                            cutpoints.append((sorted_idx, cut))
+                            start = cut
+                            samples_since_last_cut = 0
+
+                            if max_cuts_per_column is not None and len(cutpoints) >= max_cuts_per_column:
+                                break
+
+                prev_val, prev_label = val, label
+
+            col_intervals.append((start, col_data[-1][0]))
             intervals.append(col_intervals)
+
+            # Log : chaque cutpoint sur une ligne
+            log.write(f"Variable {col_idx + 1} : {feature_name}\n")
+            if cutpoints:
+                for idx, val in cutpoints:
+                    log.write(f"  coupure à l'indice trié {idx} (valeur = {val:.6f})\n")
+            else:
+                log.write("  aucun point de coupure\n")
+            log.write("\n")
 
     return intervals
