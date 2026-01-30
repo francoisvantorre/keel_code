@@ -1,4 +1,5 @@
 from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold
 import pandas as pd
 import os
 import random
@@ -67,18 +68,12 @@ def csv_to_dat(fichier_csv):
 
     return fichier_dat
 
-
-from sklearn.model_selection import KFold
-
-from sklearn.model_selection import ShuffleSplit
-
-import random
-from sklearn.model_selection import StratifiedKFold
-
-def create_folds_random(fichier_dat, n=1):
+def create_folds(fichier_dat, n=1):
     """
     Crée des folds stratifiés (66% sain / 33% malade conservés)
     en utilisant StratifiedKFold de scikit-learn.
+    Écrit un fichier dans le répertoire 'data/' indiquant pour chaque ligne
+    son nombre et proportion dans train/test sur tous les folds.
 
     Paramètres :
         fichier_dat : str
@@ -92,6 +87,7 @@ def create_folds_random(fichier_dat, n=1):
                  Longueur = 5 * n
     """
 
+    # Lecture du fichier
     with open(fichier_dat, 'r') as f:
         lignes = f.readlines()
 
@@ -104,8 +100,11 @@ def create_folds_random(fichier_dat, n=1):
 
     all_folds = []
 
-    for iteration in range(n):
+    # Pour compter combien de fois chaque instance est dans train/test
+    count_train = [0] * len(X)
+    count_test = [0] * len(X)
 
+    for iteration in range(n):
         skf = StratifiedKFold(
             n_splits=5,
             shuffle=True,
@@ -118,80 +117,31 @@ def create_folds_random(fichier_dat, n=1):
 
             all_folds.append((train, test))
 
-    return header, all_folds
+            # Mise à jour des compteurs
+            for i in train_index:
+                count_train[i] += 1
+            for i in test_index:
+                count_test[i] += 1
 
+    # ---- Création d’un seul fichier après tous les folds ----
+    os.makedirs("data", exist_ok=True)
+    chemin_fichier = os.path.join("data", f"proportions_folds.txt")
 
-import random
-from collections import defaultdict
+    with open(chemin_fichier, 'w') as f_out:
+        f_out.write("ligne\toccurrences_train\toccurrences_test\tproportion_train\tproportion_test\n")
+        total_folds = 5 * n
+        for idx, ligne in enumerate(data_original):
+            occ_train = count_train[idx]
+            occ_test = count_test[idx]
+            prop_train = occ_train / total_folds
+            prop_test = occ_test / total_folds
+            f_out.write(f"{' '.join(ligne)}\t{occ_train}\t{occ_test}\t{prop_train:.3f}\t{prop_test:.3f}\n")
 
-def create_folds_bloc(fichier_dat, n=1):
-    """
-    Crée des blocs stratifiés (66% sain / 33% malade)
-    puis construit les folds exactement comme la version originale.
-    """
-
-    with open(fichier_dat, 'r') as f:
-        lignes = f.readlines()
-
-    header = lignes[0].strip().split()
-    data_original = [l.strip().split() for l in lignes[1:]]
-
-    all_folds = []
-
-    for iteration in range(n):
-
-        random.seed(123 + iteration)
-
-        # Séparation par classe
-        classes = defaultdict(list)
-        for ligne in data_original:
-            classes[ligne[-1]].append(ligne)
-
-        # Mélange dans chaque classe
-        for c in classes:
-            random.shuffle(classes[c])
-
-        # Découpage en 5 blocs par classe
-        blocs_par_classe = {}
-        for c, lignes_classe in classes.items():
-            n_data = len(lignes_classe)
-            block_size = n_data // 5
-
-            blocs = []
-            for i in range(5):
-                start = i * block_size
-                end = n_data if i == 4 else (i + 1) * block_size
-                blocs.append(lignes_classe[start:end])
-
-            blocs_par_classe[c] = blocs
-
-        # Fusion des blocs par classe → blocs finaux
-        blocs_finals = []
-        for i in range(5):
-            bloc = []
-            for c in blocs_par_classe:
-                bloc.extend(blocs_par_classe[c][i])
-
-            random.shuffle(bloc)
-            blocs_finals.append(bloc)
-
-        # Création des folds (5 folds)  
-        for i in range(5):
-            test = blocs_finals[i]
-            train = []
-
-            for j in range(5):
-                if j != i:
-                    train.extend(blocs_finals[j])
-
-            all_folds.append((train, test))
+    print(f"Fichier de proportions créé : {chemin_fichier}")
 
     return header, all_folds
 
-
-
-
-def discretisation(rows, header, nb_bins, logfile_path):
+def discretisation(rows, header, logfile_path):
     """
     Discrétise les données d'entraînement à l'aide des intervalles calculés.
     Les lignes contenant des valeurs non numériques sont forcées à 0.0.

@@ -16,8 +16,7 @@ from nettoyage import normalize_ld_by_column
 from dat_to_csv import dat_to_csv
 from keel import (
     csv_to_dat,
-    create_folds_random,
-    create_folds_bloc,
+    create_folds,
     discretisation,
     creation_desc,
     creation_train_test
@@ -26,16 +25,15 @@ from keel import (
 # =====================================================================
 # Configuration
 # =====================================================================
-# INPUT_FILE = "data/iris0.dat"     # CSV ou DAT
-INPUT_FILE = "data/data_ano.csv"
+INPUT_FILE = "data/iris0.dat"     # CSV ou DAT
+#  INPUT_FILE = "data/data_ano.csv"
 CLEANED_FILE = "data/data_clean_final.csv"
 
 FOLD_METHOD = "random"              # 'random' ou 'bloc'
-NB_EXECUTION = 2                  # LE nb de folds sera NB_EXECUTION * 5
-NB_BINS = 10
+NB_EXECUTION = 2                 # LE nb de folds sera NB_EXECUTION * 5
 
 NON_NUMERIC_COLS = ["ID", "#2", "#3", "#4", "#5","Prelevement"]
-TARGET_COL = "Type"
+TARGET_COL = "Class"
 
 # =====================================================================
 # Programme principal
@@ -105,10 +103,8 @@ def main():
     # 8. Création des folds
     # ==========================================================
     print(f"[INFO] Création des folds ({FOLD_METHOD})")
-    if FOLD_METHOD == "random":
-        header, folds = create_folds_random(fichier_dat, NB_EXECUTION)
-    else:
-        header, folds = create_folds_bloc(fichier_dat, NB_EXECUTION)
+
+    header, folds = create_folds(fichier_dat, NB_EXECUTION)
 
     print(f"[INFO] Nombre de folds : {len(folds)}")
 
@@ -130,7 +126,6 @@ def main():
         intervals, train_discretized = discretisation(
             train_rows,
             numeric_header,
-            NB_BINS,
             cutpoints_file
         )
 
