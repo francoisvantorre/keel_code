@@ -1,0 +1,39 @@
+Le but de ce code est de prendre des fichiers csv ou dat et de les convertir en fichier compatible avec MOCA-I.
+
+Les fichiers que je prends en entrée sont actuellement dans le dossier data et les fichiers en sortie sont dans le même dossier.
+Pour chaque itération on crée un sous-dossier de data avec le nom FOLD_X dans lequel on retrouve : 
+    - un fichier de type desc 
+    - un fihcier de type test
+    - un fichier de type train 
+    - un fichier test comprenant  l'ensemble des cutpoints qui on été crée sur base du fichier train.
+
+Espace configuration : 
+
+Au niveau des variable a modifier : 
+
+INPUT_FILE : correspond au chemin d'accée du fichier (csv ou dat) que l'on prend en entrée.
+CLEAN_FILE : correspond  au chemin d'accée du fichier csv renvoyé une fois le nettoyage fini
+NB_SPLIT : le nombre de bloc que l'on crée pour nos création de folds
+NB_EXECUTION : le nombre de fols que l'on veut créer /!\ le nombre de fold = NB_SPLIT * NB_EXECUTION
+NON_NUMERIC_COLS : nom des colonnes non numerique dans le fichier initial.
+TARGET_COL : le nom de la colonne cible (que l'on va donc conserver)
+
+
+Explication des choix de code : 
+
+J'ai crée une fonction pour normaliser les "<LD" dans le fichier "nettoyage.py" cette fonction n'est clairement pas une solution optimale mais elle permet d'assurer la bonne execution de mon traitement.
+Un point peut être fait pour la suite pour voir comment mieux ré-implenter ces valeurs autrement.
+
+Pour assurer le nettoyageje remets tous les fichier (qu'il soit de type desc ou csv) au format csv.
+- on ne conserve que les données de type numeriques en plus de la colonne cible.
+- on assure le nettoyage des "<LD" et des Nan.
+
+Je remet ensuite tous les fichiers au format dat pour continuer la suite du traitement.
+
+Pour la création des folds, j'utilise la méthode stratified pour assurer la conservation d'un déséquilibre.
+
+Pour la discrétisation, on crée un cutpoint au changement de la variable cible. Afin de limiter le nombre de cutpoint on oblige a crée un cutpoint que si la valeur précendente de cutpoints est inferieur d'au moins 10**-6.
+On peut penser que si on modifie la manière d'implementer les "<LD" alors on pourra enlever cette sécurité.
+
+Une fois la discrétisation appliquée, je crée les fichiers de sortie stocké comme expliqué au dessus.
+

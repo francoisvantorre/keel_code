@@ -6,43 +6,6 @@ import random
 from discretisation import clean_features, compute_intervals_supervised
 
 
-def colonne_sparse(csv_path, output_path=None, threshold=0.3):
-    """
-    Supprime les colonnes ayant un pourcentage de valeurs manquantes supérieur
-    au seuil spécifié.
-
-    Paramètres
-    ----------
-    csv_path : str
-        Chemin du fichier CSV d'entrée.
-    output_path : str, optionnel
-        Chemin du fichier CSV nettoyé. Si None, remplace l'original.
-    threshold : float
-        Seuil maximal autorisé de valeurs manquantes (0,30 = 30%).
-
-    Retour
-    ------
-    str
-        Chemin du fichier CSV nettoyé.
-    """
-    df = pd.read_csv(csv_path)
-
-    missing_ratio = df.isna().mean()
-    cols_to_keep = missing_ratio[missing_ratio <= threshold].index.tolist()
-    df_clean = df[cols_to_keep]
-
-    if output_path is None:
-        output_path = csv_path
-
-    df_clean.to_csv(output_path, index=False)
-
-    print("Colonnes supprimées :")
-    print(list(set(df.columns) - set(cols_to_keep)))
-    print(f"Fichier enregistré à : {output_path}")
-
-    return output_path
-
-
 def csv_to_dat(fichier_csv):
     """
     Convertit un fichier CSV en fichier DAT avec espaces comme séparateurs.
@@ -68,7 +31,7 @@ def csv_to_dat(fichier_csv):
 
     return fichier_dat
 
-def create_folds(fichier_dat, n=1):
+def create_folds(fichier_dat,n_split,n=1):
     """
     Crée des folds stratifiés (66% sain / 33% malade conservés)
     en utilisant StratifiedKFold de scikit-learn.
@@ -106,7 +69,7 @@ def create_folds(fichier_dat, n=1):
 
     for iteration in range(n):
         skf = StratifiedKFold(
-            n_splits=5,
+            n_splits=n_split,
             shuffle=True,
             random_state=123 + iteration
         )

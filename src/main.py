@@ -29,8 +29,9 @@ INPUT_FILE = "data/iris0.dat"     # CSV ou DAT
 #  INPUT_FILE = "data/data_ano.csv"
 CLEANED_FILE = "data/data_clean_final.csv"
 
-FOLD_METHOD = "random"              # 'random' ou 'bloc'
-NB_EXECUTION = 2                 # LE nb de folds sera NB_EXECUTION * 5
+
+NB_SPLIT = 5                     # Le nb de split que l'on veut ici 5 blocs donc proportion 80/20
+NB_EXECUTION = 2                 # LE nb de folds sera NB_EXECUTION * NB_SPLIT
 
 NON_NUMERIC_COLS = ["ID", "#2", "#3", "#4", "#5","Prelevement"]
 TARGET_COL = "Class"
@@ -104,7 +105,7 @@ def main():
     # ==========================================================
     print(f"[INFO] Création des folds ({FOLD_METHOD})")
 
-    header, folds = create_folds(fichier_dat, NB_EXECUTION)
+    header, folds = create_folds(fichier_dat,NB_SPLIT,NB_EXECUTION)
 
     print(f"[INFO] Nombre de folds : {len(folds)}")
 
